@@ -7,7 +7,7 @@ import os
 import uuid
 from dotenv import load_dotenv
 import google.generativeai as genai
-from transformers import pipeline
+# from transformers import pipeline # Removed to save memory
 from PIL import Image
 import io
 import pandas as pd
@@ -79,19 +79,12 @@ current_vitals = {
 }
 
 # --- AI Provider Configuration (Lazy Loaded) ---
-_image_classifier = None
+# _image_classifier = None # Removed to save memory
 _gemini_model = None
 
 def get_image_classifier():
-    global _image_classifier
-    if _image_classifier is None:
-        try:
-            # Load only when first needed
-            _image_classifier = pipeline("image-classification", model="google/vit-base-patch16-224")
-        except Exception as e:
-            print(f"Error loading Hugging Face model: {e}")
-            _image_classifier = False # Mark as failed to avoid retrying every time
-    return _image_classifier
+    # Local transformers model removed to fit Render's 512MB RAM limit
+    return False
 
 def get_gemini_model():
     global _gemini_model
