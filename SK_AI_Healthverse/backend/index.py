@@ -169,6 +169,20 @@ async def register(user: UserAuth):
     
     return {"status": "success", "message": "User registered successfully"}
 
+@app.get("/api/admin/users")
+async def get_all_users():
+    """Returns a list of all registered users (for admin monitoring)"""
+    users_list = []
+    for username, data in mock_users.items():
+        users_list.append({
+            "username": username,
+            "name": data.get("name", "N/A")
+        })
+    return {
+        "total_users": len(users_list),
+        "users": users_list
+    }
+
 @app.post("/api/login")
 async def login(form_data: OAuth2PasswordRequestForm = Depends()):
     user = mock_users.get(form_data.username)
