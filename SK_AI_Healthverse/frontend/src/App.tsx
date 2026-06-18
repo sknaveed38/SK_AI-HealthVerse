@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Heart, Activity, Thermometer, User, Shield, MessageSquare, Upload, AlertCircle, Send, Loader2, Mic, MicOff, Lock, Mail, Eye, EyeOff, ArrowRight } from 'lucide-react';
+import type { Vitals, Patient, Risk, Alert } from './components/Dashboard/DashboardComponents';
 
 // ... (interfaces remain same)
 
@@ -635,8 +636,8 @@ function RecordsView({ patient, onUpdate, onBack }: { patient: Patient | null, o
             items={editedPatient.medical_history || []} 
             isEditing={isEditing} 
             onAdd={() => addListItem('medical_history')} 
-            onUpdate={(i, v) => updateListItem('medical_history', i, v)}
-            onRemove={(i) => removeListItem('medical_history', i)}
+            onUpdate={(i: number, v: string) => updateListItem('medical_history', i, v)}
+            onRemove={(i: number) => removeListItem('medical_history', i)}
             placeholder="e.g. Hypertension, Diabetes"
           />
         </RecordSection>
@@ -646,8 +647,8 @@ function RecordsView({ patient, onUpdate, onBack }: { patient: Patient | null, o
             items={editedPatient.medications || []} 
             isEditing={isEditing} 
             onAdd={() => addListItem('medications')} 
-            onUpdate={(i, v) => updateListItem('medications', i, v)}
-            onRemove={(i) => removeListItem('medications', i)}
+            onUpdate={(i: number, v: string) => updateListItem('medications', i, v)}
+            onRemove={(i: number) => removeListItem('medications', i)}
             placeholder="e.g. Metformin 500mg"
           />
         </RecordSection>
@@ -657,8 +658,8 @@ function RecordsView({ patient, onUpdate, onBack }: { patient: Patient | null, o
             items={editedPatient.allergies || []} 
             isEditing={isEditing} 
             onAdd={() => addListItem('allergies')} 
-            onUpdate={(i, v) => updateListItem('allergies', i, v)}
-            onRemove={(i) => removeListItem('allergies', i)}
+            onUpdate={(i: number, v: string) => updateListItem('allergies', i, v)}
+            onRemove={(i: number) => removeListItem('allergies', i)}
             placeholder="e.g. Peanuts, Penicillin"
           />
         </RecordSection>
@@ -670,21 +671,21 @@ function RecordsView({ patient, onUpdate, onBack }: { patient: Patient | null, o
               value={editedPatient.lifestyle?.smoking || ""} 
               isEditing={isEditing} 
               options={["Never", "Former", "Occasional", "Frequent"]}
-              onChange={(v) => setEditedPatient({...editedPatient, lifestyle: {...editedPatient.lifestyle!, smoking: v}})}
+              onChange={(v: string) => setEditedPatient({...editedPatient, lifestyle: {...editedPatient.lifestyle!, smoking: v}})}
             />
             <LifestyleItem 
               label="Alcohol Consumption" 
               value={editedPatient.lifestyle?.alcohol || ""} 
               isEditing={isEditing} 
               options={["None", "Occasional", "Moderate", "High"]}
-              onChange={(v) => setEditedPatient({...editedPatient, lifestyle: {...editedPatient.lifestyle!, alcohol: v}})}
+              onChange={(v: string) => setEditedPatient({...editedPatient, lifestyle: {...editedPatient.lifestyle!, alcohol: v}})}
             />
             <LifestyleItem 
               label="Exercise Level" 
               value={editedPatient.lifestyle?.exercise || ""} 
               isEditing={isEditing} 
               options={["Sedentary", "Light", "Moderate", "Active"]}
-              onChange={(v) => setEditedPatient({...editedPatient, lifestyle: {...editedPatient.lifestyle!, exercise: v}})}
+              onChange={(v: string) => setEditedPatient({...editedPatient, lifestyle: {...editedPatient.lifestyle!, exercise: v}})}
             />
           </div>
         </RecordSection>

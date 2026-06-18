@@ -12,10 +12,12 @@
   "dependencies": {
     "ai": "^6.0.198",
     "clsx": "^2.1.1",
+    "framer-motion": "^11.18.2",
     "lucide-react": "^1.17.0",
     "openai": "^6.42.0",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
+    "recharts": "^2.15.0",
     "tailwind-merge": "^3.6.0"
   },
   "devDependencies": {
