@@ -11,7 +11,7 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [vitalsHistory, setVitalsHistory] = useState<any[]>([]);
   const [healthPlan, setHealthPlan] = useState<{task: string, completed: boolean}[]>([]);
-  const [simulationResult, setSimulationResult] = useState<any>(null);
+  // const [simulationResult, setSimulationResult] = useState<any>(null);
   const [activeView, setActiveView] = useState<'dashboard' | 'profile' | 'records'>('dashboard');
   const [reportAnalysis, setReportAnalysis] = useState<string | null>(null);
   const [heartAnalysis, setHeartAnalysis] = useState<any | null>(null);
@@ -205,7 +205,7 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
     }
   };
 
-  const handleSimulate = async (changes: any) => {
+  //const handleSimulate = async (changes: any) => {
     try {
       const patientId = user?.email === 'sknaveedsk20@gmail.com' ? 'P123' : 'P124';
       const response = await fetch(`/api/simulate/${patientId}`, {
@@ -218,7 +218,8 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
     } catch (error) {
       console.error("Simulation error:", error);
     }
-  };
+  //}
+  ;
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-50 font-sans">
@@ -1100,14 +1101,14 @@ function StatCard({ icon, label, value, unit, trend, status, history }: any) {
   );
 }
 
-function RiskItem({ label, risk, color }: any) {
+//function RiskItem({ label, risk, color }: any) {
   return (
     <div className="flex justify-between items-center p-3 bg-slate-800/50 rounded-xl border border-slate-800">
       <span className="text-sm text-slate-300">{label}</span>
       <span className={`text-sm font-bold ${color}`}>{risk}</span>
     </div>
   );
-}
+//}
 
 function LoginPage({ onLogin }: { onLogin: (data: any) => void }) {
   const [isLogin, setIsLogin] = useState(true);
