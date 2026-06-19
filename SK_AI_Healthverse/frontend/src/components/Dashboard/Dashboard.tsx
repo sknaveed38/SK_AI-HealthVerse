@@ -4,7 +4,7 @@ import {
   Heart, Activity, Thermometer, Shield, User, 
   Upload, MessageSquare, Send, Mic, MicOff, Loader2, 
   ArrowRight, LayoutDashboard, FileText, Settings, 
-  LogOut, Apple, Brain, Zap, Bell
+  LogOut, Apple, Brain, Zap, Bell, Volume2, VolumeX
 } from 'lucide-react';
 import { StatCard, BloodWorkVisualizer } from './DashboardComponents';
 import type { Vitals, Patient, Risk, Alert } from './DashboardComponents';
@@ -262,6 +262,26 @@ function SidebarLink({ icon, label, active, onClick }: any) {
 
 function AIChatOverlay({ history, message, setMessage, isChatting, isListening, toggleListening, onSend }: any) {
   const [isOpen, setIsOpen] = useState(false);
+  const [isMuted, setIsMuted] = useState(true);
+
+  useEffect(() => {
+    if (history.length > 0 && !isMuted && isOpen) {
+      const lastMsg = history[history.length - 1];
+      if (lastMsg.role === 'ai') {
+        const cleanText = lastMsg.content.replace(/[\*\#\_`\-]/g, ''); // Strip simple markdown characters
+        const utterance = new SpeechSynthesisUtterance(cleanText);
+        window.speechSynthesis.cancel();
+        window.speechSynthesis.speak(utterance);
+      }
+    }
+  }, [history, isMuted, isOpen]);
+
+  useEffect(() => {
+    if (isMuted || !isOpen) {
+      window.speechSynthesis.cancel();
+    }
+  }, [isMuted, isOpen]);
+
   return (
     <div className="flex flex-col items-end gap-4">
       <AnimatePresence>
@@ -269,7 +289,12 @@ function AIChatOverlay({ history, message, setMessage, isChatting, isListening, 
           <motion.div initial={{ opacity: 0, scale: 0.9, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.9, y: 20 }} className="w-96 h-[600px] bg-slate-900/90 backdrop-blur-2xl border border-slate-800 rounded-[2.5rem] shadow-2xl flex flex-col overflow-hidden glass-card">
             <div className="p-6 border-b border-slate-800 flex justify-between items-center bg-blue-600">
               <div className="flex items-center gap-3"><div className="p-2 bg-white/20 rounded-xl"><MessageSquare className="w-5 h-5 text-white" /></div><div><h3 className="font-bold text-white leading-none mb-1">Health Assistant</h3><p className="text-[10px] text-blue-100 uppercase tracking-widest font-bold">24/7 Clinical AI</p></div></div>
-              <button onClick={() => setIsOpen(false)} className="text-white/60 hover:text-white transition-colors"><ArrowRight className="w-5 h-5 rotate-90" /></button>
+              <div className="flex items-center gap-2">
+                <button onClick={() => setIsMuted(!isMuted)} className="text-white/80 hover:text-white transition-colors p-1.5 hover:bg-white/10 rounded-lg">
+                  {isMuted ? <VolumeX className="w-4.5 h-4.5" /> : <Volume2 className="w-4.5 h-4.5" />}
+                </button>
+                <button onClick={() => setIsOpen(false)} className="text-white/60 hover:text-white transition-colors"><ArrowRight className="w-5 h-5 rotate-90" /></button>
+              </div>
             </div>
             <div className="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar bg-slate-950/50">
               {history.length === 0 && <div className="bg-slate-800/50 p-4 rounded-2xl border border-slate-700 text-sm text-slate-300">Hello! I'm your AI health partner. I can help analyze symptoms, explain medications, or discuss your latest vitals.</div>}

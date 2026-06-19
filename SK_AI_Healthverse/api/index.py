@@ -408,3 +408,277 @@ async def get_alerts(patient_id: str):
         if vitals.heart_rate > 100: alerts.append(EmergencyAlert(id=str(uuid.uuid4()), patient_id=patient_id, type="CRITICAL", message=f"High Heart Rate: {vitals.heart_rate} BPM", timestamp=datetime.now()))
         if vitals.oxygen_level < 94: alerts.append(EmergencyAlert(id=str(uuid.uuid4()), patient_id=patient_id, type="CRITICAL", message=f"Low Oxygen: {vitals.oxygen_level}%", timestamp=datetime.now()))
     return alerts
+
+
+# --- Advanced AI Core Utilities & Endpoints ---
+import json
+import re
+
+def clean_and_parse_json(text: str) -> dict:
+    match = re.search(r'\{.*\}', text, re.DOTALL)
+    if match:
+        json_str = match.group(0)
+    else:
+        json_str = text
+    return json.loads(json_str)
+
+
+# --- Fallback Heuristic Databases for Offline/Quota Limits ---
+
+def check_symptoms_fallback(body_part: str, symptoms: str):
+    urgency = "LOW"
+    conditions = []
+    symptoms_lower = symptoms.lower()
+    if "chest" in body_part or "pain" in symptoms_lower:
+        urgency = "HIGH"
+        conditions = [
+            {"name": "Angina / Chest Strain", "probability": 0.65},
+            {"name": "Cardiovascular Stress", "probability": 0.30}
+        ]
+        advice = "Seek professional medical evaluation immediately. Monitor your heart rate and sit down."
+    elif "head" in body_part:
+        urgency = "MEDIUM"
+        conditions = [
+            {"name": "Tension Headache", "probability": 0.70},
+            {"name": "Migraine", "probability": 0.45}
+        ]
+        advice = "Rest in a quiet, dark room, hydrate well, and consider over-the-counter pain relief."
+    else:
+        conditions = [
+            {"name": "Muscle Strain", "probability": 0.60},
+            {"name": "Minor Fatigue", "probability": 0.50}
+        ]
+        advice = "Keep the area rested, apply a warm compress if needed, and observe symptoms."
+    return {
+        "urgency": urgency,
+        "advice": advice,
+        "conditions": conditions
+    }
+
+def analyze_mental_health_fallback(journal_entry: str):
+    text = journal_entry.lower()
+    stress = 5
+    sentiment = "Neutral"
+    if any(w in text for w in ["stressed", "anxious", "sad", "angry", "tired", "worried"]):
+        stress = 8
+        sentiment = "Negative"
+        tip = "Try taking five deep, slow breaths. Remember to step away from work and stretch."
+    elif any(w in text for w in ["happy", "good", "great", "excellent", "relaxed", "glad"]):
+        stress = 2
+        sentiment = "Positive"
+        tip = "Wonderful to hear! Keep up this positive momentum and write down one thing you are grateful for."
+    else:
+        tip = "Reflecting on your day is a great habit. Try writing down three small wins from today."
+    return {
+        "stress_level": stress,
+        "sentiment": sentiment,
+        "wellness_tip": tip
+    }
+
+def get_nutrition_plan_fallback(patient_id: str):
+    return {
+        "meal_plan": {
+            "day1": {
+                "breakfast": "Oatmeal with chia seeds, banana, and blueberries",
+                "lunch": "Quinoa bowl with spinach, cherry tomatoes, and grilled tofu",
+                "dinner": "Grilled salmon with asparagus and roasted sweet potato"
+            },
+            "day2": {
+                "breakfast": "Greek yogurt parfaits with raw walnuts and a drizzle of honey",
+                "lunch": "Whole-wheat turkey wrap with hummus and avocado",
+                "dinner": "Stir-fried chicken breast with broccoli, bell peppers, and brown rice"
+            },
+            "day3": {
+                "breakfast": "Scrambled egg whites with spinach, tomatoes, and whole grain toast",
+                "lunch": "Lentil vegetable soup with a side of mixed baby greens",
+                "dinner": "Baked cod fillets with garlic green beans and quinoa"
+            }
+        }
+    }
+
+def check_medication_interaction_fallback(medications: list[str], new_medication: str):
+    safe = True
+    warning = ""
+    details = f"No known major interactions detected for {new_medication} in simulated database."
+    
+    current_meds_lower = [m.lower() for m in medications]
+    new_med_lower = new_medication.lower()
+    
+    if "warfarin" in current_meds_lower and "aspirin" == new_med_lower:
+        safe = False
+        warning = "High Risk of Bleeding!"
+        details = "Both Aspirin and Warfarin thin the blood. Combining them significantly increases the risk of internal bleeding and bruising."
+    elif "aspirin" in current_meds_lower and "warfarin" == new_med_lower:
+        safe = False
+        warning = "High Risk of Bleeding!"
+        details = "Both Aspirin and Warfarin thin the blood. Combining them significantly increases the risk of internal bleeding and bruising."
+    elif "ibuprofen" in current_meds_lower and "aspirin" == new_med_lower:
+        safe = False
+        warning = "Increased Gastric Bleeding Risk"
+        details = "Combining multiple NSAIDs (Ibuprofen + Aspirin) increases the risk of stomach ulcers and gastrointestinal bleeding."
+    elif "alcohol" in current_meds_lower and "acetaminophen" == new_med_lower:
+        safe = False
+        warning = "Severe Hepatotoxicity Risk"
+        details = "Combining Alcohol with Acetaminophen (Paracetamol) causes extreme stress to the liver and can lead to acute liver damage."
+        
+    return {
+        "safe": safe,
+        "warning": warning,
+        "details": details
+    }
+
+
+class SymptomQuery(BaseModel):
+    body_part: str
+    symptoms: str
+    patient_id: str
+
+@app.post("/api/check-symptoms")
+async def check_symptoms(query: SymptomQuery):
+    gemini = get_gemini_model()
+    
+    if not gemini:
+        return check_symptoms_fallback(query.body_part, query.symptoms)
+    
+    prompt = (
+        f"Analyze the following symptoms for body part '{query.body_part}':\n"
+        f"Symptoms: {query.symptoms}\n\n"
+        "Determine the urgency level: 'HIGH' (needs immediate medical attention), "
+        "'MEDIUM' (should see a doctor soon), or 'LOW' (home care/rest).\n"
+        "Suggest up to 3 potential conditions with their matching probabilities (between 0.0 and 1.0).\n"
+        "Provide a short piece of medical advice/next steps.\n"
+        "Return ONLY a JSON object in this exact format, with no markdown code blocks:\n"
+        "{\n"
+        '  "urgency": "HIGH" | "MEDIUM" | "LOW",\n'
+        '  "advice": "Short summary of advice here.",\n'
+        '  "conditions": [\n'
+        '    {"name": "Condition Name", "probability": 0.75},\n'
+        '    {"name": "Condition Name", "probability": 0.40}\n'
+        "  ]\n"
+        "}"
+    )
+
+    try:
+        response = gemini.generate_content(prompt)
+        result = clean_and_parse_json(response.text)
+        return result
+    except Exception as e:
+        return check_symptoms_fallback(query.body_part, query.symptoms)
+
+
+class MentalHealthQuery(BaseModel):
+    journal_entry: str
+    patient_id: str
+
+@app.post("/api/mental-health/analyze")
+async def analyze_mental_health(query: MentalHealthQuery):
+    gemini = get_gemini_model()
+    
+    if not gemini:
+        return analyze_mental_health_fallback(query.journal_entry)
+    
+    prompt = (
+        f"Analyze this personal journal entry for sentiment and stress evaluation:\n"
+        f"Entry: {query.journal_entry}\n\n"
+        "Estimate the stress level on a scale of 1 to 10 (integer).\n"
+        "Classify the overall sentiment: 'Positive', 'Negative', or 'Neutral'.\n"
+        "Provide a helpful, comforting wellness tip.\n"
+        "Return ONLY a JSON object in this exact format, with no markdown code blocks:\n"
+        "{\n"
+        '  "stress_level": 5,\n'
+        '  "sentiment": "Positive" | "Negative" | "Neutral",\n'
+        '  "wellness_tip": "comforting advice here"\n'
+        "}"
+    )
+
+    try:
+        response = gemini.generate_content(prompt)
+        result = clean_and_parse_json(response.text)
+        return result
+    except Exception as e:
+        return analyze_mental_health_fallback(query.journal_entry)
+
+
+class NutritionQuery(BaseModel):
+    patient_id: str
+
+@app.post("/api/nutrition-plan")
+async def get_nutrition_plan(query: NutritionQuery):
+    gemini = get_gemini_model()
+    
+    if not gemini:
+        return get_nutrition_plan_fallback(query.patient_id)
+    
+    patient = mock_patients.get(query.patient_id)
+    vitals = current_vitals.get(query.patient_id)
+    
+    context = ""
+    if patient:
+        context += f"Age: {patient.age}, Gender: {patient.gender}, Blood Markers: {patient.blood_markers}. "
+    if vitals:
+        context += f"Heart Rate: {vitals.heart_rate} BPM, Steps: {vitals.steps} steps/day."
+
+    prompt = (
+        f"Generate a customized, heart-healthy 3-day meal plan for a patient with this health context:\n"
+        f"{context}\n\n"
+        "Provide a breakfast, lunch, and dinner for 3 days.\n"
+        "Return ONLY a JSON object in this exact format, with no markdown code blocks:\n"
+        "{\n"
+        '  "meal_plan": {\n'
+        '    "day1": {\n'
+        '      "breakfast": "...",\n'
+        '      "lunch": "...",\n'
+        '      "dinner": "..."\n'
+        '    },\n'
+        '    "day2": {\n'
+        '      "breakfast": "...",\n'
+        '      "lunch": "...",\n'
+        '      "dinner": "..."\n'
+        '    },\n'
+        '    "day3": {\n'
+        '      "breakfast": "...",\n'
+        '      "lunch": "...",\n'
+        '      "dinner": "..."\n'
+        '    }\n'
+        "  }\n"
+        "}"
+    )
+
+    try:
+        response = gemini.generate_content(prompt)
+        result = clean_and_parse_json(response.text)
+        return result
+    except Exception as e:
+        return get_nutrition_plan_fallback(query.patient_id)
+
+
+class MedicationCheckQuery(BaseModel):
+    medications: list[str]
+    new_medication: str
+
+@app.post("/api/medication/check")
+async def check_medication_interaction(query: MedicationCheckQuery):
+    gemini = get_gemini_model()
+    
+    if not gemini:
+        return check_medication_interaction_fallback(query.medications, query.new_medication)
+    
+    current_meds_str = ", ".join(query.medications) if query.medications else "None"
+    prompt = (
+        f"Analyze the potential drug interactions between adding the new medication '{query.new_medication}' "
+        f"to a patient currently taking these medications: [{current_meds_str}].\n\n"
+        "Determine if the combination is safe or if there is a warning/contraindication.\n"
+        "Return ONLY a JSON object in this exact format, with no markdown code blocks:\n"
+        "{\n"
+        '  "safe": true | false,\n'
+        '  "warning": "Short summary warning here if not safe, otherwise empty string.",\n'
+        '  "details": "Detailed chemical or physiological interaction explanation here."\n'
+        "}"
+    )
+
+    try:
+        response = gemini.generate_content(prompt)
+        result = clean_and_parse_json(response.text)
+        return result
+    except Exception as e:
+        return check_medication_interaction_fallback(query.medications, query.new_medication)

@@ -29,10 +29,20 @@ function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
     // We map 'admin' to P123, others will have their own IDs in a real app
     const patientId = user?.email === 'admin@healthverse.ai' ? 'P123' : 'P124';
     
-    fetch(`/api/patient/${patientId}`)
+    /*fetch(`/api/patient/${patientId}`)
       .then(res => res.json())
       .then(data => setPatient(data))
-      .catch(err => console.error("Error fetching patient:", err));
+      .catch(err => console.error("Error fetching patient:", err));*/
+
+      fetch(`/api/patient/${patientId}`)
+  .then(async (res) => {
+    if (!res.ok) {
+      throw new Error(`HTTP Error: ${res.status}`);
+    }
+    return res.json();
+  })
+  .then((data) => setPatient(data))
+  .catch((err) => console.error(err));
 
     // Fetch Vitals
     const fetchVitals = () => {

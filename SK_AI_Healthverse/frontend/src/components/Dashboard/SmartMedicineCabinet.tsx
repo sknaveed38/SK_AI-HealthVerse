@@ -13,28 +13,29 @@ export function SmartMedicineCabinet({ patient, onUpdate }: { patient: any, onUp
     setInteractionResult(null);
     
     try {
-      const response = await fetch('/api/chat?message=' + encodeURIComponent(`Drug Interaction Check: Is it safe to take ${newMed} with my current medications: ${patient.medications.join(', ')}? Return a JSON with 'safe' (boolean), 'warning' (string), and 'details' (string).`) + `&patient_id=${patient.id}`, {
+      const response = await fetch('/api/medication/check', {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          medications: patient.medications || [],
+          new_medication: newMed
+        }),
       });
-      const data = await response.json();
-      const jsonMatch = data.response.match(/\{.*\}/s);
-      if (jsonMatch) {
-        const result = JSON.parse(jsonMatch[0]);
-        setInteractionResult(result);
-        if (result.safe) {
-          const updatedMeds = [...patient.medications, newMed];
-          const updateRes = await fetch(`/api/patient/${patient.id}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ medications: updatedMeds }),
-          });
-          const updateData = await updateRes.json();
-          onUpdate(updateData.patient);
-          setNewMed('');
-        }
+      const result = await response.json();
+      setInteractionResult(result);
+      if (result.safe) {
+        const updatedMeds = [...(patient.medications || []), newMed];
+        const updateRes = await fetch(`/api/patient/${patient.id}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ medications: updatedMeds }),
+        });
+        const updateData = await updateRes.json();
+        onUpdate(updateData.patient);
+        setNewMed('');
       }
     } catch (err) {
-      console.error("Check failed");
+      console.error("Check failed:", err);
     } finally {
       setIsChecking(false);
     }
