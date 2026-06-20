@@ -94,7 +94,7 @@ const ORGANS: Record<string, OrganInfo> = {
   }
 };
 
-export function DigitalTwin({ risks }: { risks: any[] }) {
+export function DigitalTwin() {
   const [selectedOrgan, setSelectedOrgan] = useState<string | null>(null);
 
   const activeOrgan = selectedOrgan ? ORGANS[selectedOrgan] : null;

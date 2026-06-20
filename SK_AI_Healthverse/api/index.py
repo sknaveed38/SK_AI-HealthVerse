@@ -7,14 +7,22 @@ import os
 import uuid
 from dotenv import load_dotenv
 import google.generativeai as genai
-# from transformers import pipeline # Removed to save memory
 from PIL import Image
 import io
 import pandas as pd
 import cv2
 import numpy as np
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from jose import JWTError, jwt
+import bcrypt
+from datetime import timedelta
+from sqlalchemy.orm import Session
+from database import SessionLocal, engine, init_db, User, Patient, MedicalReport, HealthVital
 
-# Load environment variables from .env file
+# Initialize Database
+init_db()
+
+# Load environment variables
 load_dotenv()
 
 app = FastAPI()
@@ -22,94 +30,26 @@ app = FastAPI()
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # For development; refine for production
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# --- Data Models ---
-
-class Patient(BaseModel):
-    id: str
-    name: str
-    age: int
-    gender: str
-    blood_group: str
-    global_id: str
-    profile_image: Optional[str] = None
-    location: Optional[str] = "Los Angeles, CA"
-    medical_history: List[str] = []
-    medications: List[str] = []
-    allergies: List[str] = []
-    family_history: List[str] = []
-    lifestyle: dict = {"smoking": "Never", "alcohol": "Occasional", "exercise": "Regular"}
-    blood_markers: dict = {}
-
-class MedicalReport(BaseModel):
-    id: str
-    patient_id: str
-    filename: str
-    upload_date: datetime
-    analysis_summary: str
-    abnormal_flags: bool
-
-class HealthVital(BaseModel):
-    patient_id: str
-    timestamp: datetime
-    heart_rate: int
-    steps: int
-    oxygen_level: int
-    calories: int
-
-# --- Mock Database ---
-mock_patients = {
-    "P123": Patient(id="P123", name="Shaik Naveed", age=28, gender="Male", blood_group="O+", global_id="GLOB-001")
-}
-
-current_vitals = {
-    "P123": HealthVital(
-        patient_id="P123",
-        timestamp=datetime.now(),
-        heart_rate=72,
-        steps=8432,
-        oxygen_level=98,
-        calories=450
-    )
-}
-
-# --- AI Provider Configuration (Lazy Loaded) ---
-# _image_classifier = None # Removed to save memory
-_gemini_model = None
-
-def get_image_classifier():
-    # Local transformers model removed to fit Render's 512MB RAM limit
-    return False
-
-def get_gemini_model():
-    global _gemini_model
-    if _gemini_model is None:
-        GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
-        if GOOGLE_API_KEY:
-            try:
-                genai.configure(api_key=GOOGLE_API_KEY)
-                _gemini_model = genai.GenerativeModel('gemini-flash-latest')
-            except Exception as e:
-                print(f"Error configuring Gemini: {e}")
-                _gemini_model = False
-    return _gemini_model
-
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from jose import JWTError, jwt
-import bcrypt
-from datetime import timedelta
+# Dependency to get DB session
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
 # Auth Configuration
 SECRET_KEY = "SUPER_SECRET_HEALTH_KEY"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
-# Secure Hashing Helpers (Replacing broken passlib in Python 3.13)
+# Secure Hashing Helpers
 def hash_password(password: str) -> str:
     salt = bcrypt.gensalt()
     return bcrypt.hashpw(password.encode('utf-8'), salt).decode('utf-8')
@@ -124,15 +64,6 @@ class UserAuth(BaseModel):
     password: str
     name: Optional[str] = None
 
-# Mock User Database
-mock_users = {
-    "admin@healthverse.ai": {
-        "username": "admin@healthverse.ai",
-        "hashed_password": hash_password("health2026"),
-        "name": "Dr. Shaik Naveed"
-    }
-}
-
 def create_access_token(data: dict):
     to_encode = data.copy()
     expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
@@ -140,54 +71,35 @@ def create_access_token(data: dict):
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
 @app.post("/api/register")
-async def register(user: UserAuth):
-    if user.username in mock_users:
+async def register(user: UserAuth, db: Session = Depends(get_db)):
+    db_user = db.query(User).filter(User.username == user.username).first()
+    if db_user:
         raise HTTPException(status_code=400, detail="User already exists")
     
-    mock_users[user.username] = {
-        "username": user.username,
-        "hashed_password": hash_password(user.password),
-        "name": user.name or user.username.split('@')[0]
-    }
-    
-    # Also create a patient record for this new user
-    patient_id = f"P{len(mock_patients) + 123}"
-    mock_patients[patient_id] = Patient(
-        id=patient_id, 
-        name=mock_users[user.username]["name"], 
-        age=25, gender="Not Specified", 
-        blood_group="N/A", 
-        global_id=f"GLOB-{len(mock_patients) + 1:03d}"
+    new_user = User(
+        username=user.username,
+        hashed_password=hash_password(user.password),
+        name=user.name or user.username.split('@')[0]
     )
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
     
     return {"status": "success", "message": "User registered successfully"}
 
-@app.get("/api/admin/users")
-async def get_all_users():
-    """Returns a list of all registered users (for admin monitoring)"""
-    users_list = []
-    for username, data in mock_users.items():
-        users_list.append({
-            "username": username,
-            "name": data.get("name", "N/A")
-        })
-    return {
-        "total_users": len(users_list),
-        "users": users_list
-    }
-
 @app.post("/api/login")
-async def login(form_data: OAuth2PasswordRequestForm = Depends()):
-    user = mock_users.get(form_data.username)
-    if not user or not verify_password(form_data.password, user["hashed_password"]):
+async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.username == form_data.username).first()
+    if not user or not verify_password(form_data.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Incorrect email or password")
     
-    access_token = create_access_token(data={"sub": form_data.username})
+    access_token = create_access_token(data={"sub": user.username})
     return {
         "access_token": access_token, 
         "token_type": "bearer", 
-        "user": {"name": user["name"], "email": user["username"]}
+        "user": {"name": user.name, "email": user.username}
     }
+
 
 @app.get("/api/health")
 async def health_check():
@@ -323,20 +235,25 @@ async def analyze_heart_image(file: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail=f"Image analysis failed: {str(e)}")
 
 @app.post("/api/chat")
-async def health_assistant_chat(message: str, patient_id: str):
-    patient = mock_patients.get(patient_id)
-    vitals = current_vitals.get(patient_id)
+async def health_assistant_chat(message: str, patient_id: str, db: Session = Depends(get_db)):
+    # Retrieve patient data from database instead of mock_patients
+    patient = db.query(Patient).filter(Patient.id == patient_id).first()
+    vitals = db.query(HealthVital).filter(HealthVital.patient_id == patient_id).order_by(HealthVital.timestamp.desc()).first()
+    
     context_parts = []
-    if vitals: context_parts.append(f"Vitals: Heart Rate {vitals.heart_rate} BPM, Steps {vitals.steps}, Oxygen {vitals.oxygen_level}%, Calories {vitals.calories}.")
+    if vitals: 
+        context_parts.append(f"Vitals: Heart Rate {vitals.heart_rate} BPM, Steps {vitals.steps}, Oxygen {vitals.oxygen_level}%, Calories {vitals.calories}.")
     if patient:
         if patient.medical_history: context_parts.append(f"Medical History: {', '.join(patient.medical_history)}")
         if patient.medications: context_parts.append(f"Medications: {', '.join(patient.medications)}")
         if patient.allergies: context_parts.append(f"Allergies: {', '.join(patient.allergies)}")
-        if patient.lifestyle: context_parts.append(f"Lifestyle: {patient.lifestyle}")
+        if patient.lifestyle: context_parts.append(f"Lifestyle: {str(patient.lifestyle)}")
 
     vitals_context = " ".join(context_parts)
     gemini = get_gemini_model()
-    if not gemini: return {"response": f"[MOCK MODE] Dr. Heart says your HR is fine. Vitals: {vitals_context}", "context": "mock_chat"}
+    
+    if not gemini:
+        raise HTTPException(status_code=503, detail="AI engine not configured.")
 
     try:
         system_instruction = f"You are a 'Clinical Panel of Experts'. Respond based on context: {vitals_context}"
@@ -344,7 +261,7 @@ async def health_assistant_chat(message: str, patient_id: str):
         response = gemini.generate_content(full_prompt)
         return {"response": response.text, "context": "multi_agent_panel"}
     except Exception as e:
-        return {"response": f"I encountered an error: {str(e)}", "context": "error"}
+        raise HTTPException(status_code=500, detail=f"Error communicating with AI: {str(e)}")
 
 class RiskScore(BaseModel):
     category: str

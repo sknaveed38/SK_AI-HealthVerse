@@ -1,28 +1,57 @@
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
-from sqlalchemy.orm import DeclarativeBase
-import os
-from dotenv import load_dotenv
+from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, Boolean, ForeignKey, JSON
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker, relationship
+import datetime
 
-load_dotenv()
+# SQLite database URL
+SQLALCHEMY_DATABASE_URL = "sqlite:///./healthverse.db"
 
-# Use DATABASE_URL from environment, default to local SQLite for development
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./healthverse.db")
+engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+Base = declarative_base()
 
-# Neon/Supabase/Aurora PostgreSQL requires an async driver prefix for create_async_engine
-if DATABASE_URL.startswith("postgresql://") or DATABASE_URL.startswith("postgres://"):
-    # Replace standard prefix with asyncpg prefix if not already present
-    if "postgresql+asyncpg" not in DATABASE_URL:
-        DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://", 1)
-        DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql+asyncpg://", 1)
-    engine = create_async_engine(DATABASE_URL, pool_pre_ping=True)
-else:
-    engine = create_async_engine(DATABASE_URL, connect_args={"check_same_thread": False})
+class User(Base):
+    __tablename__ = "users"
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String, unique=True, index=True)
+    hashed_password = Column(String)
+    name = Column(String)
 
-AsyncSessionLocal = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
+class Patient(Base):
+    __tablename__ = "patients"
+    id = Column(String, primary_key=True, index=True)
+    name = Column(String)
+    age = Column(Integer)
+    gender = Column(String)
+    blood_group = Column(String)
+    global_id = Column(String)
+    profile_image = Column(String, nullable=True)
+    location = Column(String, nullable=True)
+    medical_history = Column(JSON, default=[])
+    medications = Column(JSON, default=[])
+    allergies = Column(JSON, default=[])
+    family_history = Column(JSON, default=[])
+    lifestyle = Column(JSON, default={})
+    blood_markers = Column(JSON, default={})
 
-class Base(DeclarativeBase):
-    pass
+class MedicalReport(Base):
+    __tablename__ = "medical_reports"
+    id = Column(String, primary_key=True, index=True)
+    patient_id = Column(String, ForeignKey("patients.id"))
+    filename = Column(String)
+    upload_date = Column(DateTime, default=datetime.datetime.utcnow)
+    analysis_summary = Column(String)
+    abnormal_flags = Column(Boolean)
 
-async def get_db():
-    async with AsyncSessionLocal() as session:
-        yield session
+class HealthVital(Base):
+    __tablename__ = "health_vitals"
+    id = Column(Integer, primary_key=True, index=True)
+    patient_id = Column(String, ForeignKey("patients.id"))
+    timestamp = Column(DateTime, default=datetime.datetime.utcnow)
+    heart_rate = Column(Integer)
+    steps = Column(Integer)
+    oxygen_level = Column(Integer)
+    calories = Column(Integer)
+
+def init_db():
+    Base.metadata.create_all(bind=engine)

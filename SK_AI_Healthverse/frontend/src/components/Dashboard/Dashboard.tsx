@@ -17,14 +17,14 @@ import { DigitalTwin } from './DigitalTwin';
 import { VitalHistoryChart } from './VitalHistoryChart';
 import { SmartMedicineCabinet } from './SmartMedicineCabinet';
 import { HealthImpactSimulator } from './HealthImpactSimulator';
+import { useHealthData } from '../../hooks/useHealthData';
 
 export function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
-  const [vitals, setVitals] = useState<Vitals | null>(null);
-  const [patient, setPatient] = useState<Patient | null>(null);
-  const [risks, setRisks] = useState<Risk[]>([]);
-  const [alerts, setAlerts] = useState<Alert[]>([]);
-  const [vitalsHistory, setVitalsHistory] = useState<any[]>([]);
-  const [healthPlan, setHealthPlan] = useState<{task: string, completed: boolean}[]>([]);
+  const patientId = user?.patient_id || 'P124';
+  const { 
+    patient, vitals, risks, alerts, vitalsHistory, healthPlan, loading 
+  } = useHealthData(patientId);
+  
   const [activeTab, setActiveTab] = useState<'overview' | 'diagnostics' | 'nutrition' | 'wellness' | 'records' | 'profile'>('overview');
   
   const [reportMarkers, setReportMarkers] = useState<any | null>(null);
@@ -36,33 +36,7 @@ export function Dashboard({ user, onLogout }: { user: any, onLogout: () => void 
   const [isListening, setIsListening] = useState(false);
   const recognitionRef = useRef<any>(null);
 
-  const patientId = user?.patient_id || 'P124';
-
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [pRes, vRes, rRes, aRes, hRes, hpRes] = await Promise.all([
-          fetch(`/api/patient/${patientId}`).then(r => r.ok ? r.json() : null),
-          fetch(`/api/vitals/${patientId}`).then(r => r.ok ? r.json() : null),
-          fetch(`/api/risk/${patientId}`).then(r => r.ok ? r.json() : []),
-          fetch(`/api/alerts/${patientId}`).then(r => r.ok ? r.json() : []),
-          fetch(`/api/vitals/${patientId}/history`).then(r => r.ok ? r.json() : []),
-          fetch(`/api/health-plan/${patientId}`).then(r => r.ok ? r.json() : [])
-        ]);
-        if (pRes) setPatient(pRes);
-        if (vRes) setVitals(vRes);
-        setRisks(rRes || []);
-        setAlerts(aRes || []);
-        setVitalsHistory(hRes || []);
-        setHealthPlan(hpRes || []);
-      } catch (err) {
-        console.error("Data fetch error:", err);
-      }
-    };
-
-    fetchData();
-    const interval = setInterval(fetchData, 10000);
-
     if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
       const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
       recognitionRef.current = new SpeechRecognition();
@@ -71,8 +45,7 @@ export function Dashboard({ user, onLogout }: { user: any, onLogout: () => void 
         setIsListening(false);
       };
     }
-    return () => clearInterval(interval);
-  }, [patientId]);
+  }, []);
 
   const handleChat = async () => {
     if (!chatMessage.trim()) return;
@@ -104,7 +77,7 @@ export function Dashboard({ user, onLogout }: { user: any, onLogout: () => void 
     } finally { setIsChatting(false); }
     };
 
-    if (!patient) {
+    if (loading || !patient) {
     return (
       <div className="min-h-screen bg-[#020617] flex flex-col items-center justify-center gap-6">
         <div className="relative">
@@ -189,7 +162,7 @@ export function Dashboard({ user, onLogout }: { user: any, onLogout: () => void 
                       <div><h2 className="text-xl font-bold">Health Digital Twin</h2><p className="text-xs text-slate-500">Real-time Biometric Visualization</p></div>
                       <span className="bg-blue-500/10 text-blue-500 text-[10px] font-bold px-3 py-1 rounded-lg border border-blue-500/20 uppercase">3D Model</span>
                     </div>
-                    <DigitalTwin risks={risks} />
+                    <DigitalTwin />
                   </div>
                   <div className="bg-slate-900/40 rounded-[2.5rem] border border-slate-800/50 p-8 glass-card">
                     <h2 className="text-xl font-bold mb-6 flex items-center gap-2"><Shield className="text-green-500 w-5 h-5" /> Optimized Plan</h2>
