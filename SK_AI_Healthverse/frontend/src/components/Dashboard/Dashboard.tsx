@@ -7,7 +7,6 @@ import {
   LogOut, Apple, Brain, Zap, Bell, Volume2, VolumeX
 } from 'lucide-react';
 import { StatCard, BloodWorkVisualizer } from './DashboardComponents';
-import type { Vitals, Patient, Risk, Alert } from './DashboardComponents';
 import { RecordsView } from '../Records/RecordsView';
 import { ProfileView } from '../Profile/ProfileView';
 import { SymptomChecker } from '../AI/SymptomChecker';
@@ -22,9 +21,12 @@ import { useHealthData } from '../../hooks/useHealthData';
 export function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
   const patientId = user?.patient_id || 'P124';
   const { 
-    patient, vitals, risks, alerts, vitalsHistory, healthPlan, loading 
+    patient, vitals, alerts, vitalsHistory, healthPlan, loading 
   } = useHealthData(patientId);
   
+  const [localPatient, setLocalPatient] = useState(patient);
+  useEffect(() => { setLocalPatient(patient); }, [patient]);
+
   const [activeTab, setActiveTab] = useState<'overview' | 'diagnostics' | 'nutrition' | 'wellness' | 'records' | 'profile'>('overview');
   
   const [reportMarkers, setReportMarkers] = useState<any | null>(null);
@@ -77,7 +79,7 @@ export function Dashboard({ user, onLogout }: { user: any, onLogout: () => void 
     } finally { setIsChatting(false); }
     };
 
-    if (loading || !patient) {
+    if (loading || !localPatient) {
     return (
       <div className="min-h-screen bg-[#020617] flex flex-col items-center justify-center gap-6">
         <div className="relative">
@@ -113,7 +115,7 @@ export function Dashboard({ user, onLogout }: { user: any, onLogout: () => void 
         <div className="pt-6 border-t border-slate-800 space-y-4">
           <div className="flex items-center gap-3 p-3 bg-slate-800/30 rounded-2xl border border-slate-800">
             <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center border border-slate-700 overflow-hidden shadow-inner">
-              {patient?.profile_image ? <img src={patient.profile_image} className="w-full h-full object-cover" /> : <User className="w-5 h-5 text-white" />}
+              {localPatient?.profile_image ? <img src={localPatient.profile_image} className="w-full h-full object-cover" /> : <User className="w-5 h-5 text-white" />}
             </div>
             <div className="overflow-hidden">
               <p className="text-sm font-bold truncate">{user?.name || "Dr. User"}</p>
@@ -167,7 +169,7 @@ export function Dashboard({ user, onLogout }: { user: any, onLogout: () => void 
                   <div className="bg-slate-900/40 rounded-[2.5rem] border border-slate-800/50 p-8 glass-card">
                     <h2 className="text-xl font-bold mb-6 flex items-center gap-2"><Shield className="text-green-500 w-5 h-5" /> Optimized Plan</h2>
                     <div className="space-y-4">
-                      {healthPlan.map((item, i) => (
+                      {healthPlan.map((item: any, i: number) => (
                         <div key={i} className="p-4 bg-slate-800/30 rounded-2xl border border-slate-800/50 flex items-center gap-4 group hover:bg-blue-600/5 transition-all">
                           <div className="w-6 h-6 rounded-lg border-2 border-slate-700 flex items-center justify-center group-hover:border-blue-500 transition-colors">{item.completed && <Activity className="w-3 h-3 text-blue-500" />}</div>
                           <span className="text-sm font-medium text-slate-300">{item.task}</span>
@@ -178,7 +180,7 @@ export function Dashboard({ user, onLogout }: { user: any, onLogout: () => void 
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                  <SmartMedicineCabinet patient={patient} onUpdate={setPatient} />
+                  <SmartMedicineCabinet patient={localPatient} onUpdate={setLocalPatient} />
                   <HealthImpactSimulator />
                 </div>
 
@@ -208,8 +210,8 @@ export function Dashboard({ user, onLogout }: { user: any, onLogout: () => void 
             )}
             {activeTab === 'nutrition' && <motion.div key="nutrition" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="max-w-4xl mx-auto h-full"><NutritionAI patientId={patientId} /></motion.div>}
             {activeTab === 'wellness' && <motion.div key="wellness" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="max-w-4xl mx-auto h-full"><MentalHealthAI patientId={patientId} /></motion.div>}
-            {activeTab === 'records' && <RecordsView key="records" patient={patient} onUpdate={setPatient} onBack={() => setActiveTab('overview')} />}
-            {activeTab === 'profile' && <ProfileView key="profile" patient={patient} onUpdate={setPatient} onBack={() => setActiveTab('overview')} />}
+            {activeTab === 'records' && <RecordsView key="records" patient={localPatient} onUpdate={setLocalPatient} onBack={() => setActiveTab('overview')} />}
+            {activeTab === 'profile' && <ProfileView key="profile" patient={localPatient} onUpdate={setLocalPatient} onBack={() => setActiveTab('overview')} />}
           </AnimatePresence>
         </div>
 
