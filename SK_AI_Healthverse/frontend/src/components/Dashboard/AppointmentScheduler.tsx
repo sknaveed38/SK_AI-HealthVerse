@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Calendar, Clock, User, Plus, Loader2 } from 'lucide-react';
+import { Calendar, Plus, Loader2 } from 'lucide-react';
 
 export function AppointmentScheduler({ patientId }: { patientId: string }) {
   const [appointments, setAppointments] = useState<any[]>([]);

@@ -15,7 +15,6 @@ import { MentalHealthAI } from '../AI/MentalHealthAI';
 import { DigitalTwin } from './DigitalTwin';
 import { VitalHistoryChart } from './VitalHistoryChart';
 import { SmartMedicineCabinet } from './SmartMedicineCabinet';
-import { HealthImpactSimulator } from './HealthImpactSimulator';
 import { AppointmentScheduler } from './AppointmentScheduler';
 import { useHealthData } from '../../hooks/useHealthData';
 
