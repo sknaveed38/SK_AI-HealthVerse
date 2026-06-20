@@ -16,6 +16,7 @@ import { DigitalTwin } from './DigitalTwin';
 import { VitalHistoryChart } from './VitalHistoryChart';
 import { SmartMedicineCabinet } from './SmartMedicineCabinet';
 import { HealthImpactSimulator } from './HealthImpactSimulator';
+import { AppointmentScheduler } from './AppointmentScheduler';
 import { useHealthData } from '../../hooks/useHealthData';
 
 export function Dashboard({ user, onLogout }: { user: any, onLogout: () => void }) {
@@ -181,7 +182,7 @@ export function Dashboard({ user, onLogout }: { user: any, onLogout: () => void 
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                   <SmartMedicineCabinet patient={localPatient} onUpdate={setLocalPatient} />
-                  <HealthImpactSimulator />
+                  <AppointmentScheduler patientId={patientId} />
                 </div>
 
                 <div className="bg-slate-900/40 rounded-[2.5rem] border border-slate-800/50 p-8 glass-card">

@@ -1,10 +1,12 @@
+import os
 from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, Boolean, ForeignKey, JSON
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
 import datetime
 
-# SQLite database URL
-SQLALCHEMY_DATABASE_URL = "sqlite:///tmp/healthverse.db"
+# SQLite database URL - Use absolute path to ensure it works regardless of CWD
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+SQLALCHEMY_DATABASE_URL = f"sqlite:///{os.path.join(BASE_DIR, 'healthverse.db')}"
 
 engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -43,15 +45,15 @@ class MedicalReport(Base):
     analysis_summary = Column(String)
     abnormal_flags = Column(Boolean)
 
-class HealthVital(Base):
-    __tablename__ = "health_vitals"
+class Appointment(Base):
+    __tablename__ = "appointments"
     id = Column(Integer, primary_key=True, index=True)
     patient_id = Column(String, ForeignKey("patients.id"))
-    timestamp = Column(DateTime, default=datetime.datetime.utcnow)
-    heart_rate = Column(Integer)
-    steps = Column(Integer)
-    oxygen_level = Column(Integer)
-    calories = Column(Integer)
+    doctor_name = Column(String)
+    date_time = Column(DateTime)
+    reason = Column(String)
+    status = Column(String, default="Scheduled")
+
 
 def init_db():
     Base.metadata.create_all(bind=engine)

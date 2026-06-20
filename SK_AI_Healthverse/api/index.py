@@ -17,7 +17,7 @@ from jose import JWTError, jwt
 import bcrypt
 from datetime import timedelta
 from sqlalchemy.orm import Session
-from database import SessionLocal, engine, init_db, User, Patient, MedicalReport, HealthVital
+from database import SessionLocal, engine, init_db, User, Patient, MedicalReport, HealthVital, Appointment
 
 # Initialize Database
 init_db()
@@ -317,14 +317,27 @@ async def get_vitals_history(patient_id: str):
         history.append({"date": date.strftime("%b %d"), "heart_rate": 70 + (i % 3) * 5, "oxygen_level": 98 - (i % 2), "steps": 5000 + i * 1000})
     return history
 
-@app.get("/api/alerts/{patient_id}")
-async def get_alerts(patient_id: str):
-    vitals = current_vitals.get(patient_id)
-    alerts = []
-    if vitals:
-        if vitals.heart_rate > 100: alerts.append(EmergencyAlert(id=str(uuid.uuid4()), patient_id=patient_id, type="CRITICAL", message=f"High Heart Rate: {vitals.heart_rate} BPM", timestamp=datetime.now()))
-        if vitals.oxygen_level < 94: alerts.append(EmergencyAlert(id=str(uuid.uuid4()), patient_id=patient_id, type="CRITICAL", message=f"Low Oxygen: {vitals.oxygen_level}%", timestamp=datetime.now()))
-    return alerts
+class AppointmentCreate(BaseModel):
+    doctor_name: str
+    date_time: datetime
+    reason: str
+
+@app.post("/api/appointments/{patient_id}")
+async def create_appointment(patient_id: str, appointment: AppointmentCreate, db: Session = Depends(get_db)):
+    new_app = Appointment(
+        patient_id=patient_id,
+        doctor_name=appointment.doctor_name,
+        date_time=appointment.date_time,
+        reason=appointment.reason
+    )
+    db.add(new_app)
+    db.commit()
+    db.refresh(new_app)
+    return new_app
+
+@app.get("/api/appointments/{patient_id}")
+async def get_appointments(patient_id: str, db: Session = Depends(get_db)):
+    return db.query(Appointment).filter(Appointment.patient_id == patient_id).all()
 
 
 # --- Advanced AI Core Utilities & Endpoints ---
