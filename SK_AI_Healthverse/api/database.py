@@ -54,6 +54,17 @@ class Appointment(Base):
     reason = Column(String)
     status = Column(String, default="Scheduled")
 
+class HealthVital(Base):
+    __tablename__ = "health_vitals"
+    id = Column(Integer, primary_key=True, index=True)
+    patient_id = Column(String, ForeignKey("patients.id"))
+    timestamp = Column(DateTime, default=datetime.datetime.utcnow)
+    heart_rate = Column(Integer)
+    steps = Column(Integer)
+    oxygen_level = Column(Integer)
+    calories = Column(Integer)
+
+
 
 def init_db():
     Base.metadata.create_all(bind=engine)
